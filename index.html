@@ -3,63 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>B.M.B-TECH URL</title>
+<title>B.M.B-TECH</title>
 <style>
-  /* Background technology theme */
-  body {
-    margin: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #000;
-    color: #fff;
-    overflow: hidden;
-  }
-
-  /* Particle canvas */
-  canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-  }
-
-  /* Center container */
-  .container {
-    position: relative;
-    z-index: 1;
-    max-width: 600px;
-    margin: 50px auto;
-    padding: 20px;
-    background: rgba(0,0,0,0.6);
-    border-radius: 15px;
-    text-align: center;
-    box-shadow: 0 0 20px #0ff;
-  }
-
-  input[type="file"] {
-    margin: 20px 0;
-  }
-
-  button {
-    padding: 10px 20px;
-    background: #0ff;
-    color: #000;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: 0.3s;
-  }
-
-  button:hover {
-    background: #00bcd4;
-  }
-
-  #result {
-    margin-top: 20px;
-    word-wrap: break-word;
-  }
+body {
+  margin: 0; font-family: 'Segoe UI', sans-serif;
+  background-color: #000; color: #fff; overflow: hidden;
+}
+canvas { position: fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
+.container {
+  position: relative; z-index:1;
+  max-width:600px; margin:50px auto; padding:20px;
+  background: rgba(0,0,0,0.6); border-radius:15px;
+  text-align:center; box-shadow:0 0 20px #0ff;
+}
+input[type="file"] { margin:20px 0; }
+button { padding:10px 20px; background:#0ff; color:#000; border:none; border-radius:8px; cursor:pointer; font-weight:bold; transition:0.3s; }
+button:hover { background:#00bcd4; }
+#result { margin-top:20px; word-wrap:break-word; }
 </style>
 </head>
 <body>
@@ -68,7 +28,7 @@
 
 <div class="container">
   <h1>B.M.B-TECH URL</h1>
-  <p>Upload</p>
+  <p>UPLOAD</p>
   <input type="file" id="fileInput" />
   <br>
   <button onclick="uploadFile()">Upload</button>
@@ -76,81 +36,63 @@
 </div>
 
 <script>
-  // Particle animation background
-  const canvas = document.getElementById('bgCanvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-  const particles = [];
-  const particleCount = 100;
+const particles = [];
+for(let i=0;i<100;i++) particles.push({
+  x: Math.random()*canvas.width,
+  y: Math.random()*canvas.height,
+  size: Math.random()*4+1,
+  speedX: Math.random()-0.5,
+  speedY: Math.random()-0.5
+});
 
-  function random(min, max) { return Math.random() * (max - min) + min; }
+function animate() {
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  particles.forEach(p=>{
+    p.x+=p.speedX; p.y+=p.speedY;
+    if(p.x<0)p.x=canvas.width; if(p.x>canvas.width)p.x=0;
+    if(p.y<0)p.y=canvas.height; if(p.y>canvas.height)p.y=0;
+    ctx.fillStyle='#0ff'; ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+  });
+  requestAnimationFrame(animate);
+}
+animate();
 
-  class Particle {
-    constructor() {
-      this.x = random(0, canvas.width);
-      this.y = random(0, canvas.height);
-      this.size = random(1, 4);
-      this.speedX = random(-0.5, 0.5);
-      this.speedY = random(-0.5, 0.5);
+async function uploadFile() {
+  const fileInput=document.getElementById('fileInput');
+  const resultDiv=document.getElementById('result');
+  if(!fileInput.files.length){ alert("Select a file first"); return; }
+  const file=fileInput.files[0];
+  const formData=new FormData();
+  formData.append("file", file);
+
+  resultDiv.innerText="Uploading...";
+
+  try {
+    const res=await fetch("https://b-m-b-tech-url-code.vercel.app/api/upload", {method:"POST",body:formData});
+    const data=await res.json();
+    if(data.url){
+      resultDiv.innerHTML=`<strong>Uploaded!</strong><br>
+        Name: ${data.name}<br>
+        Type: ${data.type}<br>
+        Size: ${data.size} bytes<br>
+        Preview:<br>
+        <img src="${data.url}" style="max-width:100%;"/>`;
+    } else {
+      resultDiv.innerText="Upload failed.";
     }
-    update() {
-      this.x += this.speedX;
-      this.y += this.speedY;
-      if(this.x < 0) this.x = canvas.width;
-      if(this.x > canvas.width) this.x = 0;
-      if(this.y < 0) this.y = canvas.height;
-      if(this.y > canvas.height) this.y = 0;
-    }
-    draw() {
-      ctx.fillStyle = '#0ff';
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
-      ctx.fill();
-    }
+  } catch(err){
+    console.error(err);
+    resultDiv.innerText="Error uploading file.";
   }
-
-  for(let i=0;i<particleCount;i++) particles.push(new Particle());
-
-  function animate() {
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    particles.forEach(p => { p.update(); p.draw(); });
-    requestAnimationFrame(animate);
-  }
-
-  animate();
-
-  // Upload file
-  async function uploadFile() {
-    const fileInput = document.getElementById('fileInput');
-    const resultDiv = document.getElementById('result');
-    if (!fileInput.files.length) { alert("Select a file first"); return; }
-
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-
-    resultDiv.innerText = "Uploading...";
-
-    try {
-      const res = await fetch("https://b-m-b-tech-url-code.vercel.app/api/upload", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json();
-      if (data.url) {
-        resultDiv.innerHTML = `<strong>Uploaded!</strong><br>URL: <a href="${data.url}" target="_blank">${data.url}</a>`;
-      } else {
-        resultDiv.innerText = "Upload failed.";
-      }
-    } catch (err) {
-      console.error(err);
-      resultDiv.innerText = "Error uploading file.";
-    }
-  }
+}
 </script>
 
 </body>
-  </html>
+</html>
