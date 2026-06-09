@@ -1,59 +1,131 @@
-const express = require('express');
-const multer = require('multer');
-const FormData = require('form-data');
-const fs = require('fs');
-const axios = require('axios');
-const path = require('path');
-const os = require('os');
-const cors = require('cors');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B.M.B-TECH</title>
+<style>
+body {
+  margin: 0; font-family: 'Segoe UI', sans-serif;
+  background-color: #000; color: #fff; overflow: hidden;
+}
+canvas { position: fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
+.container {
+  position: relative; z-index:1;
+  max-width:600px; margin:50px auto; padding:20px;
+  background: rgba(0,0,0,0.6); border-radius:15px;
+  text-align:center; box-shadow:0 0 20px #0ff;
+}
+input[type="file"] { margin:20px 0; }
+button { padding:10px 20px; background:#0ff; color:#000; border:none; border-radius:8px; cursor:pointer; font-weight:bold; transition:0.3s; }
+button:hover { background:#00bcd4; }
+#result { margin-top:20px; word-wrap:break-word; }
+.link-box {
+  background: rgba(0,255,255,0.1); border:1px solid #0ff;
+  border-radius:8px; padding:10px; margin-top:10px;
+  display:flex; align-items:center; gap:8px; justify-content:center; flex-wrap:wrap;
+}
+.link-box a { color:#0ff; word-break:break-all; }
+.copy-btn { padding:6px 12px; font-size:12px; background:#0ff; color:#000; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
+.copy-btn:hover { background:#00bcd4; }
+</style>
+</head>
+<body>
 
-const app = express();
-const upload = multer({ 
-    dest: os.tmpdir(),
-    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+<canvas id="bgCanvas"></canvas>
+
+<div class="container">
+  <h1>B.M.B-TECH URL</h1>
+  <p>UPLOAD</p>
+  <input type="file" id="fileInput" />
+  <br>
+  <button onclick="uploadFile()">Upload</button>
+  <div id="result"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const particles = [];
+for(let i=0;i<100;i++) particles.push({
+  x: Math.random()*canvas.width,
+  y: Math.random()*canvas.height,
+  size: Math.random()*4+1,
+  speedX: Math.random()-0.5,
+  speedY: Math.random()-0.5
 });
 
-app.use(cors());
-app.use(express.static('public'));
+function animate() {
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  particles.forEach(p=>{
+    p.x+=p.speedX; p.y+=p.speedY;
+    if(p.x<0)p.x=canvas.width; if(p.x>canvas.width)p.x=0;
+    if(p.y<0)p.y=canvas.height; if(p.y>canvas.height)p.y=0;
+    ctx.fillStyle='#0ff'; ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+  });
+  requestAnimationFrame(animate);
+}
+animate();
 
-app.post('/upload', upload.single('file'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
+async function uploadFile() {
+  const fileInput = document.getElementById('fileInput');
+  const resultDiv = document.getElementById('result');
+  if (!fileInput.files.length) { alert("Select a file first"); return; }
+
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append("file", file);
+
+  resultDiv.innerHTML = "⏳ Uploading...";
+
+  try {
+    const res = await fetch("https://url.bmbtech.site/api/upload", {
+      method: "POST",
+      body: formData
+    });
+    const data = await res.json();
+
+    if (data.url) {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      const isAudio = file.type.startsWith("audio/");
+      const sizeMB = (data.file_size / 1024 / 1024).toFixed(2);
+
+      let preview = "";
+      if (isImage) preview = `<br><img src="${data.url}" style="max-width:100%; border-radius:8px; margin-top:10px;"/>`;
+      else if (isVideo) preview = `<br><video src="${data.url}" controls style="max-width:100%; border-radius:8px; margin-top:10px;"></video>`;
+      else if (isAudio) preview = `<br><audio src="${data.url}" controls style="margin-top:10px;"></audio>`;
+
+      resultDiv.innerHTML = `
+        <strong>✅ Uploaded!</strong><br>
+        Name: ${data.file_name}<br>
+        Type: ${data.file_type}<br>
+        Size: ${sizeMB} MB<br>
+        ${data.expires ? `Expires: ${new Date(data.expires).toLocaleString()}<br>` : ""}
+        <div class="link-box">
+          <a href="${data.url}" target="_blank">${data.url}</a>
+          <button class="copy-btn" onclick="copyLink('${data.url}')">Copy</button>
+        </div>
+        ${preview}
+      `;
+    } else {
+      resultDiv.innerText = "❌ Upload failed: " + (data.error || "Unknown error");
     }
+  } catch(err) {
+    console.error(err);
+    resultDiv.innerText = "❌ Error: " + err.message;
+  }
+}
 
-    try {
-        const form = new FormData();
-        form.append('fileToUpload', fs.createReadStream(req.file.path), req.file.originalname);
-        form.append('reqtype', 'fileupload');
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => alert("Link copied!"));
+}
+</script>
 
-        const response = await axios.post('https://catbox.moe/user/api.php', form, {
-            headers: form.getHeaders(),
-            timeout: 30000
-        });
-
-        // Cleanup temp file
-        fs.unlinkSync(req.file.path);
-        
-        res.json({ 
-            url: response.data.trim(),
-            success: true 
-        });
-        
-    } catch (err) {
-        console.error('Upload error:', err.message);
-        
-        // Cleanup on error
-        if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
-        
-        res.status(500).json({ 
-            error: 'Upload failed. Please try again.' 
-        });
-    }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 BMB URL Uploader running on port ${PORT}`);
-});
+</body>
+</html>
